@@ -119,18 +119,29 @@ class KinescopeLogic:
     
     def _get_n_m3u8dl_path(self):
         """Возвращает путь к N_m3u8DL-RE"""
+        # Проверяем в папке bin
         n_m3u8dl_path = os.path.join(self.bin_dir, "N_m3u8DL-RE")
-        if sys.platform == "win32":
-            n_m3u8dl_path = os.path.join(self.bin_dir, "N_m3u8DL-RE.exe")
         
         if os.path.exists(n_m3u8dl_path):
+            self.log(f"[DOWNLOAD] ✓ N_m3u8DL-RE найден: {n_m3u8dl_path}")
             return n_m3u8dl_path
         
+        # Проверяем другие возможные имена
+        import glob
+        possible_files = glob.glob(os.path.join(self.bin_dir, "N_m3u8DL-RE*"))
+        if possible_files:
+            n_m3u8dl_path = possible_files[0]
+            self.log(f"[DOWNLOAD] ✓ N_m3u8DL-RE найден как: {n_m3u8dl_path}")
+            return n_m3u8dl_path
+        
+        # Проверяем в системе
         system_n_m3u8dl = shutil.which("N_m3u8DL-RE")
         if system_n_m3u8dl:
+            self.log(f"[DOWNLOAD] ✓ N_m3u8DL-RE найден в системе: {system_n_m3u8dl}")
             return system_n_m3u8dl
         
-        return n_m3u8dl_path
+        self.log(f"[DOWNLOAD] ⚠️ N_m3u8DL-RE НЕ НАЙДЕН!")
+        return None
 
     def extract_from_json(self, json_filepath):
         """Извлекает данные видео из JSON файла"""
