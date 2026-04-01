@@ -18,6 +18,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
+from telegram.constants import ParseMode
 
 from downloader_logic import KinescopeLogic
 
@@ -44,6 +45,12 @@ user_tasks: Dict[int, Dict] = {}
 active_downloads: Dict[int, str] = {}
 
 
+def escape_markdown(text: str) -> str:
+    """Экранирует специальные символы Markdown"""
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    return ''.join(f'\\{c}' if c in escape_chars else c for c in text)
+
+
 class KinescopeBot:
     def __init__(self):
         self.logic = KinescopeLogic(self._log_callback)
@@ -65,7 +72,7 @@ class KinescopeBot:
             "/start - Показать это сообщение\n"
             "/help - Подробная инструкция\n"
             "/cancel - Отменить текущую загрузку",
-            parse_mode='Markdown'
+            parse_mode=ParseMode.MARKDOWN
         )
     
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -82,7 +89,7 @@ class KinescopeBot:
             "• Загрузка может занять несколько минут\n\n"
             "*Поддержка:*\n"
             "По вопросам обращайтесь к администратору",
-            parse_mode='Markdown'
+            parse_mode=ParseMode.MARKDOWN
         )
     
     async def cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -98,11 +105,11 @@ class KinescopeBot:
                     os.remove(json_path)
                 del user_tasks[user_id][task_id]
                 del active_downloads[user_id]
-                await update.message.reply_text("⏹️ *Загрузка отменена*", parse_mode='Markdown')
+                await update.message.reply_text("⏹️ *Загрузка отменена*", parse_mode=ParseMode.MARKDOWN)
             else:
-                await update.message.reply_text("❌ *Нет активных загрузок*", parse_mode='Markdown')
+                await update.message.reply_text("❌ *Нет активных загрузок*", parse_mode=ParseMode.MARKDOWN)
         else:
-            await update.message.reply_text("❌ *Нет активных загрузок*", parse_mode='Markdown')
+            await update.message.reply_text("❌ *Нет активных загрузок*", parse_mode=ParseMode.MARKDOWN)
     
     async def handle_json_file(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработка загруженного JSON файла"""
@@ -112,11 +119,11 @@ class KinescopeBot:
         # Проверяем, что это JSON файл
         document = message.document
         if not document.file_name.endswith('.json'):
-            await message.reply_text("❌ *Пожалуйста, отправьте JSON файл*", parse_mode='Markdown')
+            await message.reply_text("❌ *Пожалуйста, отправьте JSON файл*", parse_mode=ParseMode.MARKDOWN)
             return
         
         # Отправляем сообщение о начале обработки
-        status_msg = await message.reply_text("⏳ *Обрабатываю JSON файл...*", parse_mode='Markdown')
+        status_msg = await message.reply_text("⏳ *Обрабатываю JSON файл...*", parse_mode=ParseMode.MARKDOWN)
         
         try:
             # Скачиваем JSON файл
@@ -128,7 +135,7 @@ class KinescopeBot:
             video_list = self.logic.extract_from_json(json_path)
             
             if not video_list:
-                await status_msg.edit_text("❌ *Не удалось извлечь данные видео из JSON*", parse_mode='Markdown')
+                await status_msg.edit_text("❌ *Не удалось извлечь данные видео из JSON*", parse_mode=ParseMode.MARKDOWN)
                 if os.path.exists(json_path):
                     os.remove(json_path)
                 return
@@ -151,6 +158,9 @@ class KinescopeBot:
                 if not qualities:
                     qualities = [1080, 720, 480, 360]
                 
+                # Экранируем название для Markdown
+                safe_title = escape_markdown(video_info['title'])
+                
                 user_tasks[user_id][task_id] = {
                     'info': video_info,
                     'json_path': json_path,
@@ -169,24 +179,24 @@ class KinescopeBot:
                 if len(video_list) > 1:
                     await message.reply_text(
                         f"🎬 *Видео {idx + 1}/{len(video_list)}*\n"
-                        f"📹 *Название:* {video_info['title']}\n"
+                        f"📹 *Название:* {safe_title}\n"
                         f"📊 *Доступные качества:* {', '.join(map(str, qualities))}p\n\n"
                         f"👇 *Выберите качество:*",
-                        parse_mode='Markdown',
+                        parse_mode=ParseMode.MARKDOWN,
                         reply_markup=reply_markup
                     )
                 else:
                     await status_msg.edit_text(
-                        f"🎬 *Видео:* {video_info['title']}\n"
+                        f"🎬 *Видео:* {safe_title}\n"
                         f"📊 *Доступные качества:* {', '.join(map(str, qualities))}p\n\n"
                         f"👇 *Выберите качество:*",
-                        parse_mode='Markdown',
+                        parse_mode=ParseMode.MARKDOWN,
                         reply_markup=reply_markup
                     )
             
         except Exception as e:
             logger.error(f"Ошибка при обработке JSON: {e}\n{traceback.format_exc()}")
-            await status_msg.edit_text(f"❌ *Ошибка:* {str(e)[:100]}", parse_mode='Markdown')
+            await status_msg.edit_text(f"❌ *Ошибка:* {escape_markdown(str(e)[:100])}", parse_mode=ParseMode.MARKDOWN)
             if 'json_path' in locals() and os.path.exists(json_path):
                 os.remove(json_path)
     
@@ -206,7 +216,7 @@ class KinescopeBot:
                 if json_path and os.path.exists(json_path):
                     os.remove(json_path)
                 del user_tasks[user_id][task_id]
-                await query.edit_message_text("❌ *Загрузка отменена*", parse_mode='Markdown')
+                await query.edit_message_text("❌ *Загрузка отменена*", parse_mode=ParseMode.MARKDOWN)
             return
         
         # Обработка выбора качества
@@ -216,7 +226,7 @@ class KinescopeBot:
             
             # Проверяем существование задачи
             if user_id not in user_tasks or task_id not in user_tasks[user_id]:
-                await query.edit_message_text("❌ *Задача не найдена*", parse_mode='Markdown')
+                await query.edit_message_text("❌ *Задача не найдена*", parse_mode=ParseMode.MARKDOWN)
                 return
             
             # Проверяем, не идет ли уже загрузка
@@ -224,20 +234,21 @@ class KinescopeBot:
                 await query.edit_message_text(
                     "⚠️ *У вас уже есть активная загрузка*\n"
                     "Дождитесь ее завершения или используйте /cancel",
-                    parse_mode='Markdown'
+                    parse_mode=ParseMode.MARKDOWN
                 )
                 return
             
             task = user_tasks[user_id][task_id]
+            safe_title = escape_markdown(task['title'])
             
             # Сообщаем о начале загрузки
             await query.edit_message_text(
                 f"🚀 *Начинаю загрузку...*\n\n"
-                f"📹 *Видео:* {task['title']}\n"
+                f"📹 *Видео:* {safe_title}\n"
                 f"📺 *Качество:* {quality}p\n\n"
                 f"⏳ *Пожалуйста, подождите*\n"
                 f"Это может занять несколько минут...",
-                parse_mode='Markdown'
+                parse_mode=ParseMode.MARKDOWN
             )
             
             # Запускаем загрузку в фоне
@@ -263,6 +274,7 @@ class KinescopeBot:
             if success and os.path.exists(save_path):
                 file_size = os.path.getsize(save_path)
                 size_mb = file_size / (1024 * 1024)
+                safe_title_escaped = escape_markdown(task['title'])
                 
                 # Отправляем результат
                 if file_size <= MAX_FILE_SIZE:
@@ -273,23 +285,23 @@ class KinescopeBot:
                             filename=filename,
                             caption=(
                                 f"✅ *Видео успешно скачано!*\n\n"
-                                f"📹 *Название:* {task['title']}\n"
+                                f"📹 *Название:* {safe_title_escaped}\n"
                                 f"📺 *Качество:* {quality}p\n"
                                 f"📦 *Размер:* {size_mb:.2f} MB\n"
                                 f"⏱️ *Готово к скачиванию*"
                             ),
-                            parse_mode='Markdown'
+                            parse_mode=ParseMode.MARKDOWN
                         )
                 else:
                     # Файл слишком большой для Telegram
                     await query.message.reply_text(
                         f"✅ *Видео скачано, но превышает лимит Telegram*\n\n"
-                        f"📹 *Название:* {task['title']}\n"
+                        f"📹 *Название:* {safe_title_escaped}\n"
                         f"📺 *Качество:* {quality}p\n"
                         f"📦 *Размер:* {size_mb:.2f} MB\n\n"
                         f"⚠️ *Telegram не позволяет отправлять файлы больше 50 MB*\n"
                         f"Видео сохранено на сервере, обратитесь к администратору",
-                        parse_mode='Markdown'
+                        parse_mode=ParseMode.MARKDOWN
                     )
                 
                 # Удаляем временный файл
@@ -297,25 +309,26 @@ class KinescopeBot:
                     os.remove(save_path)
                     
             else:
+                safe_title_escaped = escape_markdown(task['title'])
                 await query.message.reply_text(
                     f"❌ *Ошибка при скачивании видео*\n\n"
-                    f"📹 *Видео:* {task['title']}\n"
+                    f"📹 *Видео:* {safe_title_escaped}\n"
                     f"📺 *Качество:* {quality}p\n\n"
                     f"*Возможные причины:*\n"
                     f"• Неверные данные в JSON\n"
                     f"• Видео защищено DRM\n"
                     f"• Проблемы с сервером Kinescope\n\n"
                     f"Попробуйте другое качество или проверьте JSON файл",
-                    parse_mode='Markdown'
+                    parse_mode=ParseMode.MARKDOWN
                 )
             
         except Exception as e:
             logger.error(f"Ошибка при скачивании: {e}\n{traceback.format_exc()}")
             await query.message.reply_text(
                 f"❌ *Критическая ошибка*\n\n"
-                f"```\n{str(e)[:200]}\n```\n"
+                f"```\n{escape_markdown(str(e)[:200])}\n```\n"
                 f"Попробуйте позже или обратитесь к администратору",
-                parse_mode='Markdown'
+                parse_mode=ParseMode.MARKDOWN
             )
         
         finally:
