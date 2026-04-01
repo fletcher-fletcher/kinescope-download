@@ -20,15 +20,18 @@ services:
       unzip -j bento4.zip "*/mp4decrypt" -d bin/
       chmod +x bin/mp4decrypt
       
-      # Скачивание N_m3u8DL-RE
+      # Скачивание N_m3u8DL-RE (правильная ссылка)
       echo "📥 Скачиваем N_m3u8DL-RE..."
-      wget -O n_m3u8dl.tar.gz https://github.com/nilaoda/N_m3u8DL-RE/releases/download/v0.2.0-beta/N_m3u8DL-RE_Beta_linux-x64_20230418.tar.gz
-      tar -xzf n_m3u8dl.tar.gz
-      cp N_m3u8DL-RE bin/
+      wget -O n_m3u8dl.zip https://github.com/nilaoda/N_m3u8DL-RE/releases/download/v0.2.0/N_m3u8DL-RE_Beta_linux-x64_20230418.zip
+      unzip -j n_m3u8dl.zip "N_m3u8DL-RE" -d bin/
       chmod +x bin/N_m3u8DL-RE
       
+      # Проверяем, что файлы скачались
+      echo "📋 Проверка бинарников:"
+      ls -la bin/
+      
       # Очистка
-      rm -f bento4.zip n_m3u8dl.tar.gz
+      rm -f bento4.zip n_m3u8dl.zip
       
       # Установка Python зависимостей
       echo "📦 Устанавливаем Python пакеты..."
@@ -40,5 +43,3 @@ services:
     envVars:
       - key: BOT_TOKEN
         sync: false
-      - key: RENDER_EXTERNAL_URL
-        value: https://your-app-name.onrender.com  # Замените на ваш URL
