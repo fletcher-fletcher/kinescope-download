@@ -1,58 +1,22 @@
 services:
-  - type: worker  # <-- ИЗМЕНИТЕ С web НА worker
+  - type: web
     name: telegram-kinescope-bot
     runtime: python
     plan: free
     buildCommand: |
       echo "🚀 Начинаем сборку..."
       
-      # Создаем папку для бинарников
-      mkdir -p bin
+      # Проверяем наличие бинарников в репозитории
+      echo "📋 Проверка бинарников:"
+      ls -la bin/ || echo "Папка bin не найдена"
       
-      # Установка FFmpeg
+      # Делаем бинарники исполняемыми
+      chmod +x bin/* 2>/dev/null || true
+      
+      # Устанавливаем FFmpeg из системы (на всякий случай)
       echo "📥 Устанавливаем FFmpeg..."
       apt-get update
-      apt-get install -y ffmpeg wget unzip tar curl
-      
-      # Скачивание mp4decrypt
-      echo "📥 Скачиваем mp4decrypt..."
-      wget -O bento4.zip https://github.com/axiomatic-systems/Bento4/releases/download/1.6.0-641/Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip
-      unzip -j bento4.zip "*/mp4decrypt" -d bin/
-      chmod +x bin/mp4decrypt
-      
-      # Скачивание N_m3u8DL-RE
-      echo "📥 Скачиваем N_m3u8DL-RE..."
-      wget -O n_m3u8dl.tar.gz https://github.com/nilaoda/N_m3u8DL-RE/releases/download/v0.5.1-beta/N_m3u8DL-RE_v0.5.1-beta_linux-x64_20251029.tar.gz
-      tar -xzf n_m3u8dl.tar.gz -C bin/
-      
-      # Ищем и перемещаем бинарник
-      echo "📋 Ищем N_m3u8DL-RE..."
-      find bin -name "N_m3u8DL-RE*" -type f -exec mv {} bin/N_m3u8DL-RE \; 2>/dev/null || true
-      chmod +x bin/N_m3u8DL-RE 2>/dev/null || true
-      
-      # Проверяем, что файлы скачались
-      echo "📋 Проверка бинарников:"
-      ls -la bin/
-      
-      echo "📋 Проверка ffmpeg:"
-      ffmpeg -version | head -n1 || echo "ffmpeg not found"
-      
-      echo "📋 Проверка mp4decrypt:"
-      if [ -f bin/mp4decrypt ]; then
-        bin/mp4decrypt --version 2>&1 | head -n1 || echo "mp4decrypt found"
-      else
-        echo "mp4decrypt not found in bin"
-      fi
-      
-      echo "📋 Проверка N_m3u8DL-RE:"
-      if [ -f bin/N_m3u8DL-RE ]; then
-        bin/N_m3u8DL-RE --version 2>&1 | head -n1 || echo "N_m3u8DL-RE found"
-      else
-        echo "N_m3u8DL-RE not found in bin"
-      fi
-      
-      # Очистка
-      rm -f bento4.zip n_m3u8dl.tar.gz
+      apt-get install -y ffmpeg
       
       # Установка Python зависимостей
       echo "📦 Устанавливаем Python пакеты..."
