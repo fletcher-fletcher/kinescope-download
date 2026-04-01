@@ -6,17 +6,54 @@ services:
     buildCommand: |
       echo "🚀 Начинаем сборку..."
       
-      # Проверяем наличие бинарников в репозитории
-      echo "📋 Проверка бинарников:"
-      ls -la bin/ || echo "Папка bin не найдена"
+      # Создаем папку для бинарников
+      mkdir -p bin
       
-      # Делаем бинарники исполняемыми
-      chmod +x bin/* 2>/dev/null || true
-      
-      # Устанавливаем FFmpeg из системы (на всякий случай)
+      # Установка FFmpeg и утилит
       echo "📥 Устанавливаем FFmpeg..."
       apt-get update
-      apt-get install -y ffmpeg
+      apt-get install -y ffmpeg wget unzip tar curl
+      
+      # Скачиваем mp4decrypt (Linux версия)
+      echo "📥 Скачиваем mp4decrypt для Linux..."
+      wget -O bento4.zip https://github.com/axiomatic-systems/Bento4/releases/download/1.6.0-641/Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip
+      unzip -j bento4.zip "*/mp4decrypt" -d bin/
+      chmod +x bin/mp4decrypt
+      rm -f bento4.zip
+      
+      # Скачиваем N_m3u8DL-RE (Linux версия)
+      echo "📥 Скачиваем N_m3u8DL-RE для Linux..."
+      wget -O n_m3u8dl.tar.gz https://github.com/nilaoda/N_m3u8DL-RE/releases/download/v0.5.1-beta/N_m3u8DL-RE_v0.5.1-beta_linux-x64_20251029.tar.gz
+      tar -xzf n_m3u8dl.tar.gz
+      
+      # Ищем и перемещаем бинарник
+      echo "📋 Ищем N_m3u8DL-RE..."
+      if [ -f "N_m3u8DL-RE" ]; then
+        mv N_m3u8DL-RE bin/
+      elif [ -f "N_m3u8DL-RE_v0.5.1-beta_linux-x64_20251029/N_m3u8DL-RE" ]; then
+        mv "N_m3u8DL-RE_v0.5.1-beta_linux-x64_20251029/N_m3u8DL-RE" bin/
+      else
+        find . -name "N_m3u8DL-RE*" -type f -exec mv {} bin/N_m3u8DL-RE \; 2>/dev/null || true
+      fi
+      
+      chmod +x bin/N_m3u8DL-RE
+      rm -rf n_m3u8dl.tar.gz N_m3u8DL-RE*
+      
+      # Удаляем возможные Windows версии
+      rm -f bin/*.exe 2>/dev/null || true
+      
+      # Проверяем бинарники
+      echo "📋 Проверка бинарников:"
+      ls -la bin/
+      
+      echo "📋 Проверка ffmpeg:"
+      ffmpeg -version | head -n1 || echo "ffmpeg found"
+      
+      echo "📋 Проверка mp4decrypt:"
+      bin/mp4decrypt --version 2>&1 | head -n1 || echo "mp4decrypt found"
+      
+      echo "📋 Проверка N_m3u8DL-RE:"
+      bin/N_m3u8DL-RE --version 2>&1 | head -n1 || echo "N_m3u8DL-RE found"
       
       # Установка Python зависимостей
       echo "📦 Устанавливаем Python пакеты..."
