@@ -21,6 +21,9 @@ from telegram.constants import ParseMode
 
 from downloader_logic import KinescopeLogic
 
+# Добавляем импорт aiohttp
+from aiohttp import web
+
 # Конфигурация
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 if not BOT_TOKEN:
@@ -42,6 +45,28 @@ logger = logging.getLogger(__name__)
 # Хранилище задач
 user_tasks: Dict[int, Dict] = {}
 active_downloads: Dict[int, str] = {}
+
+
+async def run_web_server():
+    """Запускает простой веб-сервер для health checks Render"""
+    app = web.Application()
+    
+    async def health_check(request):
+        return web.Response(text="Bot is running!")
+    
+    app.router.add_get('/', health_check)
+    app.router.add_get('/health', health_check)
+    
+    port = int(os.environ.get('PORT', 10000))
+    
+    try:
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, '0.0.0.0', port)
+        await site.start()
+        logger.info(f"✅ Веб-сервер для health checks запущен на порту {port}")
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось запустить веб-сервер: {e}")
 
 
 def escape_markdown(text: str) -> str:
@@ -299,8 +324,13 @@ class KinescopeBot:
                 del user_tasks[user_id][task_id]
     
     def run(self):
-        """Запуск бота с polling"""
+        """Запуск бота с polling и веб-сервером для health checks"""
         print("🔄 Запуск бота...")
+        
+        # Запускаем веб-сервер в фоне для health checks
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.create_task(run_web_server())
         
         # Создаем приложение
         application = Application.builder().token(BOT_TOKEN).build()
@@ -323,18 +353,20 @@ class KinescopeBot:
             print(f"⚠️ Ошибка сброса webhook: {e}")
         
         print("🚀 Запускаем polling...")
-        # Запускаем polling (НЕ webhook!)
+        # Запускаем polling
         application.run_polling(
             drop_pending_updates=True,
             allowed_updates=Update.ALL_TYPES
         )
 
+
 if __name__ == "__main__":
     try:
         print("🔥 Старт бота...")
-        KinescopeBot().run()
+        bot = KinescopeBot()
+        bot.run()
     except Exception as e:
-        import traceback
         print("❌ Ошибка при запуске:")
         print(e)
+        import traceback
         print(traceback.format_exc())
