@@ -40,3 +40,5 @@ services:
     envVars:
       - key: BOT_TOKEN
         sync: false
+      - key: RENDER_EXTERNAL_URL
+        value: https://your-app-name.onrender.com  # Замените на ваш URL
