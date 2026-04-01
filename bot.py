@@ -328,3 +328,13 @@ class KinescopeBot:
             drop_pending_updates=True,
             allowed_updates=Update.ALL_TYPES
         )
+
+if __name__ == "__main__":
+    try:
+        print("🔥 Старт бота...")
+        KinescopeBot().run()
+    except Exception as e:
+        import traceback
+        print("❌ Ошибка при запуске:")
+        print(e)
+        print(traceback.format_exc())
