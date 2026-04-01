@@ -140,9 +140,10 @@ class KinescopeLogic:
             self.log(f"[DOWNLOAD] ✓ N_m3u8DL-RE найден в системе: {system_n_m3u8dl}")
             return system_n_m3u8dl
         
-        self.log(f"[DOWNLOAD] ⚠️ N_m3u8DL-RE НЕ НАЙДЕН!")
-        return None
-
+        # Если не найден, возвращаем строку для использования системного
+        self.log(f"[DOWNLOAD] ⚠️ N_m3u8DL-RE НЕ НАЙДЕН, будет использован системный")
+        return "N_m3u8DL-RE"  # <-- ВОЗВРАЩАЕМ СТРОКУ, А НЕ None!
+        
     def extract_from_json(self, json_filepath):
         """Извлекает данные видео из JSON файла"""
         self.log(f"[JSON] Чтение JSON файла: {json_filepath}")
@@ -311,8 +312,13 @@ class KinescopeLogic:
         
         n_m3u8dl_path = self._get_n_m3u8dl_path()
         
+        # Проверяем, что путь не None
+        if n_m3u8dl_path is None:
+            self.log(f"[DOWNLOAD] ❌ N_m3u8DL-RE не найден!")
+            return False
+        
         if not os.path.exists(n_m3u8dl_path):
-            self.log(f"[DOWNLOAD] ⚠️ N_m3u8DL-RE не найден, пробуем использовать системный")
+            self.log(f"[DOWNLOAD] ⚠️ N_m3u8DL-RE не найден по пути {n_m3u8dl_path}, пробуем использовать системный")
             n_m3u8dl_path = "N_m3u8DL-RE"
         
         # Формирование параметров ключей
