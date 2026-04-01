@@ -69,6 +69,28 @@ async def run_web_server():
         logger.warning(f"⚠️ Не удалось запустить веб-сервер: {e}")
 
 
+def force_cleanup():
+    """Принудительно удаляет webhook и очищает очередь"""
+    try:
+        import requests
+        # Удаляем webhook
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook"
+        response = requests.post(url, json={"drop_pending_updates": True})
+        logger.info(f"✅ Webhook удален: {response.json()}")
+        
+        # Очищаем очередь обновлений
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
+        response = requests.post(url, json={"offset": -1, "timeout": 1})
+        logger.info(f"✅ Очередь очищена")
+        
+        # Пауза для стабилизации
+        import time
+        time.sleep(2)
+        
+    except Exception as e:
+        logger.warning(f"⚠️ Ошибка очистки: {e}")
+
+
 def escape_markdown(text: str) -> str:
     """Экранирует специальные символы Markdown"""
     escape_chars = r'_*[]()~`>#+-=|{}.!'
@@ -289,7 +311,8 @@ class KinescopeBot:
                         f"📹 *Название:* {safe_title_escaped}\n"
                         f"📺 *Качество:* {quality}p\n"
                         f"📦 *Размер:* {size_mb:.2f} MB\n\n"
-                        f"⚠️ *Telegram не позволяет отправлять файлы больше 50 MB*",
+                        f"⚠️ *Telegram не позволяет отправлять файлы больше 50 MB*\n"
+                        f"Файл сохранен на сервере: `{save_path}`",
                         parse_mode=ParseMode.MARKDOWN
                     )
                 
@@ -327,6 +350,9 @@ class KinescopeBot:
         """Запуск бота с polling и веб-сервером для health checks"""
         print("🔄 Запуск бота...")
         
+        # Принудительная очистка перед запуском
+        force_cleanup()
+        
         # Запускаем веб-сервер в фоне для health checks
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -342,21 +368,14 @@ class KinescopeBot:
         application.add_handler(MessageHandler(filters.Document.ALL, self.handle_json_file))
         application.add_handler(CallbackQueryHandler(self.handle_quality_selection))
         
-        # Сбрасываем webhook
-        print("🔄 Сбрасываем webhook...")
-        try:
-            import requests
-            url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook"
-            response = requests.post(url, json={"drop_pending_updates": True})
-            print(f"✅ Webhook сброшен: {response.json()}")
-        except Exception as e:
-            print(f"⚠️ Ошибка сброса webhook: {e}")
-        
         print("🚀 Запускаем polling...")
+        
         # Запускаем polling
         application.run_polling(
             drop_pending_updates=True,
-            allowed_updates=Update.ALL_TYPES
+            allowed_updates=Update.ALL_TYPES,
+            poll_interval=1.0,
+            timeout=10
         )
 
 
@@ -365,8 +384,13 @@ if __name__ == "__main__":
         print("🔥 Старт бота...")
         bot = KinescopeBot()
         bot.run()
+    except KeyboardInterrupt:
+        print("👋 Бот остановлен пользователем")
     except Exception as e:
         print("❌ Ошибка при запуске:")
         print(e)
         import traceback
         print(traceback.format_exc())
+        # Не завершаемся сразу, даем время на отправку логов
+        import time
+        time.sleep(5)
