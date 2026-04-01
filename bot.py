@@ -300,6 +300,8 @@ class KinescopeBot:
     
     def run(self):
         """Запуск бота с polling"""
+        print("🔄 Запуск бота...")
+        
         # Создаем приложение
         application = Application.builder().token(BOT_TOKEN).build()
         
@@ -310,34 +312,19 @@ class KinescopeBot:
         application.add_handler(MessageHandler(filters.Document.ALL, self.handle_json_file))
         application.add_handler(CallbackQueryHandler(self.handle_quality_selection))
         
-        # Принудительно останавливаем все сессии
-        logger.info("🔄 Очищаем старые подключения...")
-        
-        # Создаем временный бот для сброса
-        import asyncio
-        
-        async def reset():
-            from telegram import Bot
-            bot = Bot(token=BOT_TOKEN)
-            try:
-                # Удаляем webhook
-                await bot.delete_webhook(drop_pending_updates=True)
-                # Получаем обновления, чтобы очистить очередь
-                await bot.get_updates(offset=-1, timeout=1)
-                logger.info("✅ Webhook сброшен")
-            except Exception as e:
-                logger.error(f"Ошибка при сбросе: {e}")
-            finally:
-                await bot.close()
-        
-        # Запускаем сброс
+        # Сбрасываем webhook
+        print("🔄 Сбрасываем webhook...")
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(reset())
-            loop.close()
+            import requests
+            url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook"
+            response = requests.post(url, json={"drop_pending_updates": True})
+            print(f"✅ Webhook сброшен: {response.json()}")
         except Exception as e:
-            logger.error(f"Ошибка: {e}")
+            print(f"⚠️ Ошибка сброса webhook: {e}")
         
-        logger.info("🚀 Бот запущен и готов к работе!")
-        application.run_polling(drop_pending_updates=True)
+        print("🚀 Запускаем polling...")
+        # Запускаем polling (НЕ webhook!)
+        application.run_polling(
+            drop_pending_updates=True,
+            allowed_updates=Update.ALL_TYPES
+        )
