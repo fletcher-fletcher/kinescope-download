@@ -300,18 +300,44 @@ class KinescopeBot:
     
     def run(self):
         """Запуск бота с polling"""
+        # Создаем приложение
         application = Application.builder().token(BOT_TOKEN).build()
         
+        # Регистрируем обработчики
         application.add_handler(CommandHandler("start", self.start))
         application.add_handler(CommandHandler("help", self.help))
         application.add_handler(CommandHandler("cancel", self.cancel))
         application.add_handler(MessageHandler(filters.Document.ALL, self.handle_json_file))
         application.add_handler(CallbackQueryHandler(self.handle_quality_selection))
         
+        # Принудительно останавливаем все сессии
+        logger.info("🔄 Очищаем старые подключения...")
+        
+        # Создаем временный бот для сброса
+        import asyncio
+        
+        async def reset():
+            from telegram import Bot
+            bot = Bot(token=BOT_TOKEN)
+            try:
+                # Удаляем webhook
+                await bot.delete_webhook(drop_pending_updates=True)
+                # Получаем обновления, чтобы очистить очередь
+                await bot.get_updates(offset=-1, timeout=1)
+                logger.info("✅ Webhook сброшен")
+            except Exception as e:
+                logger.error(f"Ошибка при сбросе: {e}")
+            finally:
+                await bot.close()
+        
+        # Запускаем сброс
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(reset())
+            loop.close()
+        except Exception as e:
+            logger.error(f"Ошибка: {e}")
+        
         logger.info("🚀 Бот запущен и готов к работе!")
         application.run_polling(drop_pending_updates=True)
-
-
-if __name__ == "__main__":
-    bot = KinescopeBot()
-    bot.run()
