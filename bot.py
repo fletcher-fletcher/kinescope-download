@@ -27,6 +27,10 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN не установлен в переменных окружения")
 
+# Для webhook нужен публичный URL
+RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://your-app.onrender.com")
+WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"  # Секретный путь для безопасности
+
 DOWNLOADS_DIR = "downloads"
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
@@ -54,6 +58,7 @@ def escape_markdown(text: str) -> str:
 class KinescopeBot:
     def __init__(self):
         self.logic = KinescopeLogic(self._log_callback)
+        self.application = None
         
     def _log_callback(self, message: str):
         """Callback для логирования"""
@@ -99,7 +104,6 @@ class KinescopeBot:
         if user_id in active_downloads:
             task_id = active_downloads[user_id]
             if user_id in user_tasks and task_id in user_tasks[user_id]:
-                # Удаляем задачу
                 json_path = user_tasks[user_id][task_id].get('json_path')
                 if json_path and os.path.exists(json_path):
                     os.remove(json_path)
@@ -342,21 +346,36 @@ class KinescopeBot:
                     os.remove(json_path)
                 del user_tasks[user_id][task_id]
     
+    async def health_check(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Простая проверка работоспособности"""
+        await update.message.reply_text("✅ Бот работает!")
+    
     def run(self):
-        """Запуск бота"""
+        """Запуск бота с webhook"""
         # Создаем приложение
-        application = Application.builder().token(BOT_TOKEN).build()
+        self.application = Application.builder().token(BOT_TOKEN).build()
         
         # Регистрируем обработчики
-        application.add_handler(CommandHandler("start", self.start))
-        application.add_handler(CommandHandler("help", self.help))
-        application.add_handler(CommandHandler("cancel", self.cancel))
-        application.add_handler(MessageHandler(filters.Document.ALL, self.handle_json_file))
-        application.add_handler(CallbackQueryHandler(self.handle_quality_selection))
+        self.application.add_handler(CommandHandler("start", self.start))
+        self.application.add_handler(CommandHandler("help", self.help))
+        self.application.add_handler(CommandHandler("cancel", self.cancel))
+        self.application.add_handler(CommandHandler("health", self.health_check))
+        self.application.add_handler(MessageHandler(filters.Document.ALL, self.handle_json_file))
+        self.application.add_handler(CallbackQueryHandler(self.handle_quality_selection))
         
-        # Запускаем бота
-        logger.info("🚀 Бот запущен и готов к работе!")
-        application.run_polling(allowed_updates=Update.ALL_TYPES)
+        # Запускаем с webhook (для Render)
+        webhook_url = f"{RENDER_EXTERNAL_URL}{WEBHOOK_PATH}"
+        
+        logger.info(f"🚀 Запуск бота с webhook: {webhook_url}")
+        
+        # Устанавливаем webhook
+        self.application.run_webhook(
+            listen="0.0.0.0",
+            port=int(os.environ.get("PORT", 10000)),
+            url_path=WEBHOOK_PATH,
+            webhook_url=webhook_url,
+            allowed_updates=Update.ALL_TYPES
+        )
 
 
 if __name__ == "__main__":
