@@ -4,3 +4,4 @@ httpx
 pywidevine
 PyYAML
 python-dotenv
+aiohttp
