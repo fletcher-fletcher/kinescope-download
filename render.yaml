@@ -1,5 +1,5 @@
 services:
-  - type: web
+  - type: worker  # <-- ИЗМЕНИТЕ С web НА worker
     name: telegram-kinescope-bot
     runtime: python
     plan: free
@@ -20,7 +20,7 @@ services:
       unzip -j bento4.zip "*/mp4decrypt" -d bin/
       chmod +x bin/mp4decrypt
       
-      # Скачивание N_m3u8DL-RE (исправленная ссылка)
+      # Скачивание N_m3u8DL-RE
       echo "📥 Скачиваем N_m3u8DL-RE..."
       wget -O n_m3u8dl.tar.gz https://github.com/nilaoda/N_m3u8DL-RE/releases/download/v0.5.1-beta/N_m3u8DL-RE_v0.5.1-beta_linux-x64_20251029.tar.gz
       tar -xzf n_m3u8dl.tar.gz -C bin/
@@ -38,10 +38,18 @@ services:
       ffmpeg -version | head -n1 || echo "ffmpeg not found"
       
       echo "📋 Проверка mp4decrypt:"
-      bin/mp4decrypt --version 2>&1 | head -n1 || echo "mp4decrypt not found"
+      if [ -f bin/mp4decrypt ]; then
+        bin/mp4decrypt --version 2>&1 | head -n1 || echo "mp4decrypt found"
+      else
+        echo "mp4decrypt not found in bin"
+      fi
       
       echo "📋 Проверка N_m3u8DL-RE:"
-      bin/N_m3u8DL-RE --version 2>&1 | head -n1 || echo "N_m3u8DL-RE not found"
+      if [ -f bin/N_m3u8DL-RE ]; then
+        bin/N_m3u8DL-RE --version 2>&1 | head -n1 || echo "N_m3u8DL-RE found"
+      else
+        echo "N_m3u8DL-RE not found in bin"
+      fi
       
       # Очистка
       rm -f bento4.zip n_m3u8dl.tar.gz
